@@ -5,32 +5,39 @@ import datetime
 import time
 import stat
 
-def throw_error(operation, log, url, return_token, exception=None):
-    requests.post(url, {
-        "success": False,
-        "log": "\n\n".join(log),
-        "timestamp": datetime.datetime.now(),
-        "exception": exception,
-        "operation": operation
-    }, headers={
-      "API-Route": "Build",
-      "API-Token": return_token
-    })
-    exit()
+class Helper:
+    def __init__(self, url, return_token, pass_through):
+        self._url = url
+        self._return_token = return_token
+        self._pass_through = pass_through
 
-def manage_log(operation, current, url, return_token):
-    try:
-        data = None
-        with open("out") as file:
-            data = file.read()
-        os.remove("out")
-        if data is None or data == "":
-            raise Exception("Data is undefined!")
-        current.append(f"------ {operation} ------")
-        current.append(data)
-        return data
-    except Exception as exception:
-        throw_error(operation, current, url, return_token, str(exception))
+    def throw_error(self, operation, log, exception=None):
+        requests.post(self._url, {
+            "success": False,
+            "log": "\n\n".join(log),
+            "timestamp": datetime.datetime.now(),
+            "exception": exception,
+            "operation": operation,
+            "pass": self._pass_through
+        }, headers={
+            "API-Route": "Build",
+            "API-Token": self._return_token
+        })
+        exit()
+
+    def manage_log(self, operation, current):
+        try:
+            data = None
+            with open("out") as file:
+                data = file.read()
+            os.remove("out")
+            if data is None or data == "":
+                raise Exception("Data is undefined!")
+            current.append(f"------ {operation} ------")
+            current.append(data)
+            return data
+        except Exception as exception:
+            self.throw_error(operation, current, str(exception))
 
 def remove_error(function, path, execute):
     os.chmod(path, stat.S_IWRITE)
@@ -46,41 +53,43 @@ def build(**kwargs):
     name = kwargs["name"]
     return_token = kwargs["return"]
     repository = kwargs["repository"]
+    pass_through = kwargs["pass"]
+    helper = Helper(url, return_token, pass_through)
     if os.path.isdir(name):
         shutil.rmtree(name, onerror=remove_error)
     os.system(f"git clone {repository} --progress 2> out")
-    manage_log("Cloning Repository", output, url, return_token)
+    helper.manage_log("Cloning Repository", output)
     if not os.path.isdir(name):
-        throw_error("Cloning Repository", output, url, return_token)
+        helper.throw_error("Cloning Repository", output)
     try:
         os.chdir(name)
         os.system("python setup.py develop > out")
-        manage_log("Running Setup", output, url, return_token)
+        helper.manage_log("Running Setup", output)
         os.system("python -m unittest 2> out")
-        unit_tests = manage_log("Running Unit Tests", output, url, return_token)
+        unit_tests = helper.manage_log("Running Unit Tests", output)
         if "OK" in unit_tests:
             unit_tests_success = True
         os.system("python setup.py check > out")
-        setup_check = manage_log("Checking Setup", output, url, return_token)
+        setup_check = helper.manage_log("Checking Setup", output)
         if "warning" in setup_check or "error" in setup_check:
             setup_check_success = False
         os.system("python setup.py sdist > out")
-        manage_log("Building Distribution", output, url, return_token)
+        helper.manage_log("Building Distribution", output)
         if not os.path.isdir("dist"):
-            throw_error("Building Distribution", output, url, return_token)
+            helper.throw_error("Building Distribution", output)
         os.system("twine check dist/* > out")
-        twine_check = manage_log("Checking Distribution", output, url, return_token)
+        twine_check = helper.manage_log("Checking Distribution", output)
         if "PASSED" in twine_check:
             twine_check_success = True
         os.chdir("..")
     except Exception as exception:
-        throw_error("Main Process", output, url, exception, return_token)
+        helper.throw_error("Main Process", output, exception)
     try:
         os.system(f"pip uninstall -y {name} > out")
-        manage_log("Tearing Down", output, url, return_token)
+        helper.manage_log("Tearing Down", output)
         shutil.rmtree(name, onerror=remove_error)
     except Exception as exception:
-        throw_error("Tear Down", output, url, exception, return_token)
+        helper.throw_error("Tear Down", output, exception)
     end = time.time()
     log = "\n\n".join(output)
     requests.post(url, {
@@ -91,7 +100,8 @@ def build(**kwargs):
         "duration": end - start,
         "unitTests": unit_tests_success,
         "setupCheck": setup_check_success,
-        "twineCheck": twine_check_success
+        "twineCheck": twine_check_success,
+        "pass": pass_through
     }, headers={
       "API-Route": "Build",
       "API-Token": return_token

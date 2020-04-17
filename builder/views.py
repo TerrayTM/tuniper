@@ -12,7 +12,7 @@ class Builder(APIView):
         return Response({ "status": "success" })
 
     def post(self, request):
-        validation = ["repository", "name", "callback", "token", "return"]
+        validation = ["repository", "name", "callback", "token", "return", "pass"]
         if not all(i in request.data for i in validation):
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if not request.data["token"] == TOKEN:
