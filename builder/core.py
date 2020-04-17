@@ -13,7 +13,7 @@ class Helper:
 
     def throw_error(self, operation, log, exception=None):
         requests.post(self._url, {
-            "success": False,
+            "success": "false",
             "log": "\n\n".join(log),
             "timestamp": datetime.datetime.now(),
             "exception": exception,
@@ -93,14 +93,14 @@ def build(**kwargs):
     end = time.time()
     log = "\n\n".join(output)
     requests.post(url, {
-        "success": True,
-        "build": unit_tests_success and setup_check_success and twine_check_success,
+        "success": "true",
+        "build": "true" if unit_tests_success and setup_check_success and twine_check_success else "false",
         "log": log,
         "timestamp": datetime.datetime.now(),
         "duration": end - start,
-        "unitTests": unit_tests_success,
-        "setupCheck": setup_check_success,
-        "twineCheck": twine_check_success,
+        "unitTests": "true" if unit_tests_success else "false",
+        "setupCheck": "true" if setup_check_success else "false",
+        "twineCheck": "true" if twine_check_success else "false",
         "pass": pass_through
     }, headers={
       "API-Route": "Build",
