@@ -15,7 +15,7 @@ class Helper:
         requests.post(self._url, {
             "success": "false",
             "log": "\n\n".join(log),
-            "timestamp": datetime.datetime.now(),
+            "timestamp": str(datetime.datetime.now()).split(".")[0],
             "exception": exception,
             "operation": operation,
             "pass": self._pass_through
@@ -96,7 +96,7 @@ def build(**kwargs):
         "success": "true",
         "build": "true" if unit_tests_success and setup_check_success and twine_check_success else "false",
         "log": log,
-        "timestamp": datetime.datetime.now(),
+        "timestamp": str(datetime.datetime.now()).split(".")[0],
         "duration": end - start,
         "unitTests": "true" if unit_tests_success else "false",
         "setupCheck": "true" if setup_check_success else "false",
